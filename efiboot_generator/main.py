@@ -1,11 +1,16 @@
 #!/usr/bin/python
 
 from pathlib import Path
+from typing import List
 import subprocess
 import logging
+import re
 import sys
 
 EFI_DIR = Path("/boot")
+
+IS_CMDLINE_AUTO = True
+CMDLINE = "root=LABEL=rootfs rootfstype=btrfs rootflags=subvol=gentoo-root rw"
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
@@ -17,11 +22,6 @@ LOGGER.addHandler(stream_handler)
 
 VMLINUZ_STR = "vmlinuz"
 INIRAMFS_STR = "initramfs"
-
-kernels = [child for child in EFI_DIR.iterdir() if VMLINUZ_STR in child.name]
-# initramfses = [
-#     child for child in EFI_DIR.iterdir() if INIRAMFS_STR in child.name
-# ]
 
 
 def run_cmd(args):
@@ -37,7 +37,19 @@ def run_cmd(args):
     return result.stdout.strip()
 
 
-def clean_efiboot():
+def read_file(file_path: Path) -> List[str]:
+    with open(file_path, mode="r", encoding="utf-8") as f:
+        return f.readlines()
+
+
+def get_cmdline() -> str:
+    cmd_line = read_file(Path("/proc/cmdline"))[0].strip()
+    cmd_line = re.sub(r"initrd=\\[^\s]+", "", cmd_line)
+    logging.info(f"cmd_line: {cmd_line}")
+    return cmd_line
+
+
+def clean_efiboot() -> None:
     lines = run_cmd(["efibootmgr"]).splitlines()
     entries = [line for line in lines if "Gentoo" in line]
     ids = [int(entry.split("*", 1)[0][-4:]) for entry in entries]
@@ -52,6 +64,19 @@ def clean_efiboot():
 
 def main():
     clean_efiboot()
+
+    kernels = [
+        child for child in EFI_DIR.iterdir() if VMLINUZ_STR in child.name
+    ]
+    # initramfses = [
+    #     child for child in EFI_DIR.iterdir() if INIRAMFS_STR in child.name
+    # ]
+
+    if IS_CMDLINE_AUTO:
+        cmd_line = get_cmdline()
+    else:
+        cmd_line = CMDLINE
+
     for kernel in kernels:
         logging.info(f"found kernel: {kernel}")
 
@@ -71,13 +96,13 @@ def main():
         run_cmd(
             [
                 "sudo", "efibootmgr",
+                "--create",
                 "--disk", "/dev/nvme0n1",
                 "--part", "1",
-                "--create",
                 "--label", f"Gentoo {version}",
                 "--loader", f"/{kernel.name}",
                 "--unicode",
-                f"root=LABEL=rootfs rootfstype=btrfs rw initrd=\{initramfs.name}",
+                f"{cmd_line} initrd=\{initramfs.name}",
             ]
         )
         # fmt: on
