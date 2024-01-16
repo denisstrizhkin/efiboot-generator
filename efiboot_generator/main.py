@@ -1,11 +1,10 @@
 #!/usr/bin/python
 
 from pathlib import Path
-from typing import List
-import subprocess
+from typing import List, Tuple
 import logging
 import re
-import sys
+from efiboot_generator import add_entry, clean_efiboot
 
 EFI_DIR = Path("/boot")
 
@@ -26,19 +25,6 @@ VMLINUZ_STR = "vmlinuz"
 INIRAMFS_STR = "initramfs"
 
 
-def run_cmd(args):
-    logging.info(" ".join(args))
-    result = subprocess.run(
-        args, capture_output=True, text=True, encoding="utf-8"
-    )
-
-    if result.returncode != 0:
-        logging.error(result.stderr.strip())
-        sys.exit(1)
-
-    return result.stdout.strip()
-
-
 def read_file(file_path: Path) -> List[str]:
     with open(file_path, mode="r", encoding="utf-8") as f:
         return f.readlines()
@@ -51,7 +37,7 @@ def get_cmdline() -> str:
     return cmd_line
 
 
-def get_efi_dir_device(efi_dir_path: Path) -> str:
+def get_efi_dir_device(efi_dir_path: Path) -> Tuple[str, int]:
     mounts = read_file(Path("/proc/mounts"))
     efi_mount = [mount for mount in mounts if f" {efi_dir_path} " in mount][
         0
@@ -64,24 +50,11 @@ def get_efi_dir_device(efi_dir_path: Path) -> str:
     if "nvme" in efi_device:
         efi_device = efi_device[:-1]
 
-    return efi_device, efi_part_num
-
-
-def clean_efiboot() -> None:
-    lines = run_cmd(["efibootmgr"]).splitlines()
-    entries = [line for line in lines if PREFIX in line]
-    ids = [int(entry.split("*", 1)[0][-4:]) for entry in entries]
-
-    [
-        run_cmd(
-            ["sudo", "efibootmgr", "--delete-bootnum", "--bootnum", str(id)]
-        )
-        for id in ids
-    ]
+    return efi_device, int(efi_part_num)
 
 
 def main():
-    clean_efiboot()
+    clean_efiboot(PREFIX)
 
     kernels = [
         child for child in EFI_DIR.iterdir() if VMLINUZ_STR in child.name
@@ -111,20 +84,15 @@ def main():
             continue
 
         logging.info(f"initramfs: {initramfs}")
-
-        # fmt: off
-        run_cmd(
-            [
-                "sudo", "efibootmgr",
-                "--create",
-                "--disk", efi_device,
-                "--part", efi_part_num,
-                "--label", f"{PREFIX} {version}",
-                "--loader", f"/{kernel.name}",
-                "--unicode", f"{cmd_line} initrd=\\{initramfs.name}",
-            ]
+        add_entry(
+            efi_device,
+            efi_part_num,
+            PREFIX,
+            version,
+            cmd_line,
+            kernel,
+            initramfs,
         )
-        # fmt: on
 
 
 if __name__ == "__main__":
