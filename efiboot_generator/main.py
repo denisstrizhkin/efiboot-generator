@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 import logging
 import re
-from efiboot_generator import add_entry, clean_efiboot
+from efiboot_generator import add_entry, delete_entry, find_entries
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
@@ -89,7 +89,7 @@ def main():
     else:
         entry_cmdline = get_cmdline()
 
-    clean_efiboot(entry_prefix)
+    old_entries = find_entries(entry_prefix)
 
     kernels = [
         child for child in efi_dir.iterdir() if VMLINUZ_STR in child.name
@@ -122,6 +122,9 @@ def main():
             kernel,
             initramfs,
         )
+
+    for entry in old_entries:
+        delete_entry(entry)
 
 
 if __name__ == "__main__":
