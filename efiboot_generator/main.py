@@ -44,9 +44,25 @@ def read_file(file_path: Path) -> List[str]:
 
 def get_cmdline() -> str:
     cmd_line = read_file(Path("/proc/cmdline"))[0].strip()
-    cmd_line = re.sub(r"initrd=\\[^\s]+", "", cmd_line)
+    cmd_line = re.sub(r"initrd=\\[^\s]+", "", cmd_line).strip()
     logging.info(f"cmd_line: {cmd_line}")
     return cmd_line
+
+
+def get_efi_dir_device(efi_dir_path: Path) -> str:
+    mounts = read_file(Path("/proc/mounts"))
+    efi_mount = [mount for mount in mounts if f" {efi_dir_path} " in mount][
+        0
+    ].strip()
+
+    efi_part = efi_mount.split(" ", 1)[0]
+    efi_part_num = re.findall(r"[0-9]+$", efi_part)[0]
+
+    efi_device = efi_part.removesuffix(efi_part_num)
+    if "nvme" in efi_device:
+        efi_device = efi_device[:-1]
+
+    return efi_device, efi_part_num
 
 
 def clean_efiboot() -> None:
@@ -77,6 +93,8 @@ def main():
     else:
         cmd_line = CMDLINE
 
+    efi_device, efi_part_num = get_efi_dir_device(EFI_DIR)
+
     for kernel in kernels:
         logging.info(f"found kernel: {kernel}")
 
@@ -97,12 +115,11 @@ def main():
             [
                 "sudo", "efibootmgr",
                 "--create",
-                "--disk", "/dev/nvme0n1",
-                "--part", "1",
+                "--disk", efi_device,
+                "--part", efi_part_num,
                 "--label", f"Gentoo {version}",
                 "--loader", f"/{kernel.name}",
-                "--unicode",
-                f"{cmd_line} initrd=\{initramfs.name}",
+                "--unicode", f"{cmd_line} initrd=\\{initramfs.name}",
             ]
         )
         # fmt: on
