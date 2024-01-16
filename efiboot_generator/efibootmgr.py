@@ -19,7 +19,7 @@ def run_cmd(args: List[str]) -> str:
 
 
 def delete_entry(id: int) -> None:
-    run_cmd(["sudo", "efibootmgr", "--delete-bootnum", "--bootnum", str(id)])
+    run_cmd(["efibootmgr", "--delete-bootnum", "--bootnum", str(id)])
 
 
 def add_entry(
@@ -34,7 +34,7 @@ def add_entry(
     # fmt: off
     run_cmd(
         [
-            "sudo", "efibootmgr",
+            "efibootmgr",
             "--create",
             "--disk", efi_device,
             "--part", str(efi_part_num),
