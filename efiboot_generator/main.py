@@ -12,6 +12,8 @@ EFI_DIR = Path("/boot")
 IS_CMDLINE_AUTO = True
 CMDLINE = "root=LABEL=rootfs rootfstype=btrfs rootflags=subvol=gentoo-root rw"
 
+PREFIX = "Gentoo Efistub"
+
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler()
@@ -67,7 +69,7 @@ def get_efi_dir_device(efi_dir_path: Path) -> str:
 
 def clean_efiboot() -> None:
     lines = run_cmd(["efibootmgr"]).splitlines()
-    entries = [line for line in lines if "Gentoo" in line]
+    entries = [line for line in lines if PREFIX in line]
     ids = [int(entry.split("*", 1)[0][-4:]) for entry in entries]
 
     [
@@ -117,7 +119,7 @@ def main():
                 "--create",
                 "--disk", efi_device,
                 "--part", efi_part_num,
-                "--label", f"Gentoo {version}",
+                "--label", f"{PREFIX} {version}",
                 "--loader", f"/{kernel.name}",
                 "--unicode", f"{cmd_line} initrd=\\{initramfs.name}",
             ]
