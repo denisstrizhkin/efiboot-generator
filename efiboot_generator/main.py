@@ -1,17 +1,11 @@
 #!/usr/bin/python
 
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import List, Tuple
 import logging
 import re
 from efiboot_generator import add_entry, clean_efiboot
-
-EFI_DIR = Path("/boot")
-
-IS_CMDLINE_AUTO = True
-CMDLINE = "root=LABEL=rootfs rootfstype=btrfs rootflags=subvol=gentoo-root rw"
-
-PREFIX = "Gentoo Efistub"
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
@@ -54,22 +48,57 @@ def get_efi_dir_device(efi_dir_path: Path) -> Tuple[str, int]:
 
 
 def main():
-    clean_efiboot(PREFIX)
+    argparser = ArgumentParser(
+        prog="efiboot-generator",
+        description="Automate EFI entries generation with efibootmgr",
+    )
+
+    argparser.add_argument(
+        "--efi-dir",
+        action="store",
+        required=False,
+        default="/boot",
+        type=str,
+        help="Efi partiton mount point",
+    )
+
+    argparser.add_argument(
+        "--entry-prefix",
+        action="store",
+        required=False,
+        default="Gentoo Efistub",
+        type=str,
+        help="Efi entry prefix",
+    )
+
+    argparser.add_argument(
+        "--entry-cmdline",
+        action="store",
+        required=False,
+        type=str,
+        help="Efi entry cmdline",
+    )
+
+    args = argparser.parse_args()
+
+    entry_prefix = args.entry_prefix
+    efi_dir = Path(args.efi_dir)
+
+    if args.entry_cmdline:
+        entry_cmdline = args.entry_cmdline
+    else:
+        entry_cmdline = get_cmdline()
+
+    clean_efiboot(entry_prefix)
 
     kernels = [
-        child for child in EFI_DIR.iterdir() if VMLINUZ_STR in child.name
+        child for child in efi_dir.iterdir() if VMLINUZ_STR in child.name
     ]
     # initramfses = [
     #     child for child in EFI_DIR.iterdir() if INIRAMFS_STR in child.name
     # ]
 
-    if IS_CMDLINE_AUTO:
-        cmd_line = get_cmdline()
-    else:
-        cmd_line = CMDLINE
-
-    efi_device, efi_part_num = get_efi_dir_device(EFI_DIR)
-
+    efi_device, efi_part_num = get_efi_dir_device(efi_dir)
     for kernel in kernels:
         logging.info(f"found kernel: {kernel}")
 
@@ -87,9 +116,9 @@ def main():
         add_entry(
             efi_device,
             efi_part_num,
-            PREFIX,
+            entry_prefix,
             version,
-            cmd_line,
+            entry_cmdline,
             kernel,
             initramfs,
         )
