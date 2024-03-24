@@ -33,7 +33,8 @@ def get_cmdline() -> str:
 
 def get_efi_dir_device(efi_dir_path: Path) -> Tuple[str, int]:
     mounts = read_file(Path("/proc/mounts"))
-    efi_mount = [mount for mount in mounts if f" {efi_dir_path} " in mount][
+    dev_mounts = [mount for mount in mounts if re.match(r"^/dev/", mount)]
+    efi_mount = [mount for mount in dev_mounts if f" {efi_dir_path} " in mount][
         0
     ].strip()
 
