@@ -46,11 +46,10 @@ def add_entry(
     # fmt: on
 
 
-def find_entries(prefix: str) -> List[int]:
+def find_entries(prefix: str) -> List[str]:
     lines = run_cmd(["efibootmgr"]).splitlines()
     entries = [line for line in lines if prefix in line]
     for entry in entries:
         logging.info(f"found entry: {entry}")
-
-    ids = [int(entry.split("*", 1)[0][-4:]) for entry in entries]
+    ids = [entry.split("*", 1)[0][-4:] for entry in entries]
     return ids

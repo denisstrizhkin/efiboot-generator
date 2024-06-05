@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 import logging
 import re
-from efiboot_generator import add_entry, delete_entry, find_entries
+from efibootmgr import add_entry, delete_entry, find_entries
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
@@ -37,6 +37,7 @@ def get_efi_dir_device(efi_dir_path: Path) -> Tuple[str, int]:
     efi_mount = [mount for mount in dev_mounts if f" {efi_dir_path} " in mount][
         0
     ].strip()
+    print(efi_mount)
 
     efi_part = efi_mount.split(" ", 1)[0]
     efi_part_num = re.findall(r"[0-9]+$", efi_part)[0]
