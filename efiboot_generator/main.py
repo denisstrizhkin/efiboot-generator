@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Tuple
 import logging
 import re
-from efibootmgr import add_entry, delete_entry, find_entries
+from efiboot_generator import add_entry, delete_entry, find_entries
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.DEBUG)
